@@ -21,12 +21,13 @@ import org.apache.hadoop.util.*;
 
 public class PartitionJoin {
 
-    public static class PartitionMapper extends MapReduceBase implements Mapper<LongWritable, Text, Text, Text> {
+    public static class PartitionMapper extends MapReduceBase implements Mapper<LongWritable, Text, IntWritable, Text> {
         private final static IntWritable one = new IntWritable(1);
-        private Text word = new Text();
+        private String tag = new String();
+        private Text record = new Text();
 
         //initiate a look up table accessible for all
-        private HashMap lookupTable = new HashMap();
+        private HashMap<String, ArrayList<Integer>> lookupTable = new HashMap<String, ArrayList<Integer>>();
 
         //the setup function will be called only once to populate the lookupTable
         public void setup(org.apache.hadoop.mapreduce.Mapper.Context context) throws IOException, InterruptedException{
@@ -61,12 +62,21 @@ public class PartitionJoin {
             }
         }
 
-        public void map(LongWritable key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+        public void map(LongWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
             String line = value.toString();
-            StringTokenizer tokenizer = new StringTokenizer(line);
-            while (tokenizer.hasMoreTokens()) {
-                word.set(tokenizer.nextToken());
-               	output.collect(word, one);
+
+            //split up the string from the tag and the rest of the key and values
+            int i = line.indexOf(' ');
+            tag = line.substring(0,i);
+            record.set(line.substring(i));
+
+            //look up in the lookup table and retrieve the reducer list
+            String tagKey = tag.toString();
+            ArrayList<Integer> reducersArray = lookupTable.get(tagKey);
+
+            //loop through the reducerArray and form key and value pair
+            for(Integer j : reducersArray){
+                output.collect(new IntWritable(j), record);
             }
         }
     }
